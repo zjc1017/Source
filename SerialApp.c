@@ -314,17 +314,8 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
       rgb[3] = '\0';
       RGB_PWM_FF_00((unsigned int *) rgb);
       TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
-      //osal_memcpy(rgb_backup, &func_pamter[LIGHT_R_NUM], 3 * sizeof(uint16_t));
-      //rgb_backup[3] = '\0';
       osal_memcpy( serial_test, rgb, 4 * sizeof(uint16_t));
-      //osal_memcpy( serial_test + 4 * sizeof(uint16_t), rgb_backup, 4 * sizeof(uint16_t));
-      //osal_memcpy(serial_test + sizeof(rgb),rgb_backup,sizeof(rgb_backup));
       HalUARTWrite( SERIAL_APP_PORT,serial_test,4 * sizeof(uint16_t));
-      //HalUARTWrite( SERIAL_APP_PORT,rgb,4);//Array format test;
-      //HalUARTWrite( SERIAL_APP_PORT,rgb_backup,4);//Array format test;
-      /*osal_start_timerEx( SerialApp_TaskID,
-                        SERIALAPP_LIGHT_EVT,
-                        SERIALAPP_LIGHT_INTERVAL);*/
    // }
        return (events ^ SERIALAPP_LIGHT_EVT);
     }
