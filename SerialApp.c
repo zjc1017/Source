@@ -236,14 +236,14 @@ void SerialApp_Init( uint8 task_id )
   
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, End_Device_Bind_rsp );
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, Match_Desc_rsp );
-  #ifdef DEVICE_BUILD_ROUTER 
+  #ifdef router_model   //it this device is a router or end device
   Init_T1_PWM();//Initial PWM
-  #endif
   RGB_PWM_FF_00((unsigned int *) rgb);
   TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
   osal_start_timerEx( SerialApp_TaskID,
                       SERIALAPP_TIMER_EVT,
                      SERIALAPP_TIMER_INTERVAL);
+  #endif
   //Device Register 
 
  // osal_set_event(SerialApp_TaskID, SERIALAPP_TIMER_EVT);
@@ -287,7 +287,6 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
       default:
         break;
       }
-
       osal_msg_deallocate( (uint8 *)MSGpkt );
     }
 
@@ -314,8 +313,8 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
       rgb[3] = '\0';
       RGB_PWM_FF_00((unsigned int *) rgb);
       TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
-      osal_memcpy( serial_test, rgb, 4 * sizeof(uint16_t));
-      HalUARTWrite( SERIAL_APP_PORT,serial_test,4 * sizeof(uint16_t));
+      osal_memcpy( serial_test, rgb, 3 * sizeof(uint16_t));
+      HalUARTWrite( SERIAL_APP_PORT,serial_test,3 * sizeof(uint16_t));
    // }
        return (events ^ SERIALAPP_LIGHT_EVT);
     }
@@ -383,7 +382,7 @@ static void SerialApp_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
             HalLedSet( HAL_LED_4, HAL_LED_MODE_ON );
           }
           {  
-            #ifdef DEVICE_BUILD_ROUTER
+            #ifdef router_model
             struct zb_reg_req reg_req;
             int rv;
             char buf[30];
@@ -476,7 +475,7 @@ void SerialApp_HandleKeys( uint8 shift, uint8 keys )
         // osal_memcpy(Zb_Sigal3, Zb_Sigal2, sizeof(Zb_Sigal2));
         testf1g.flag1=1;
       }
-      #ifdef DEVICE_BUILD_ROUTER 
+      #ifdef router_model 
       if(testf1g.flag3 == 1)
       {
           msg.hdr.cmd = ZB_ID_ANN_REG;
@@ -619,7 +618,7 @@ void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
   {
     
   } */
-  #ifdef DEVICE_BUILD_ROUTER
+  #ifdef router_model
   {
       int i,j;
       int rv;

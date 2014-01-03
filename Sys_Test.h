@@ -23,4 +23,5 @@ uint16_t func_g_backup;
 uint16_t func_b_backup;
 //uint16_t rgb_backup[4] = {0,0,0,0};
 uint16_t rgb[4] = {0,0,0};
-uint8 serial_test[32];
+uint8_t serial_test[32];
+#define router_model   1

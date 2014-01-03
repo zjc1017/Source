@@ -51,9 +51,9 @@ void Init_T1_PWM(void)
 
 };
 void TIMER1_SET_PWM_LENGTH_RGB(unsigned int *v){
-     TIMER1_SET_PWM_LENGTH(1,*v); // p0.3
-     TIMER1_SET_PWM_LENGTH(2,*(v+1));//  p0.4
-     TIMER1_SET_PWM_LENGTH(3,*(v+2));//  p0.5
+     TIMER1_SET_PWM_LENGTH(1,*v);     // p0.3
+     TIMER1_SET_PWM_LENGTH(2,*(v+1)); //  p0.4
+     TIMER1_SET_PWM_LENGTH(3,*(v+2)); //  p0.5
 
 }
      
@@ -63,14 +63,14 @@ unsigned int  RGB_PWM_FF_00(unsigned int  *v){
     rgb = v;
     for(i = 0; i < 3 ; i++)
     {
-            if((*rgb & 0xFF) == 0xFF)  
-            {
-                *rgb = 0x00;
-            }
-            else if ((*rgb & 0xFF) == 0x00) 
-            {
-                *rgb = 0xFF;
-            }
+        if((*rgb & 0xFF) == 0xFF)  
+        {
+            *rgb = 0x00;
+        }
+        else if ((*rgb & 0xFF) == 0x00) 
+        {
+            *rgb = 0xFF;
+        }
         rgb++;
     }
     return 0;
