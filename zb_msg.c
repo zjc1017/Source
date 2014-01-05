@@ -90,7 +90,7 @@ zb_getlen_header(struct zb_header *val)
 	uint32_t len = 0;
 
 	len += z_getlen_binary();//syn
-    len += z_getlen_byte();//ver
+  len += z_getlen_byte();//ver
 	len += z_getlen_integer16();//len
 	len += z_getlen_byte();//cmd
 	len += z_getlen_integer16();//addr
@@ -102,9 +102,9 @@ zb_getlen_ann_reg(struct zb_ann_reg *val)
 {
 	uint32_t len = 0;
 
-    len += zb_getlen_header(&val->hdr);
+  len += zb_getlen_header(&val->hdr);
 	len += z_getlen_string(val->item.name);
-    len += z_getlen_byte();
+  len += z_getlen_byte();
 	len += z_getlen_string(val->item.desc);
 	len += z_getlen_string(val->item.form);
 	return len;

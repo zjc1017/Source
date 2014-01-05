@@ -78,7 +78,7 @@
 /* myself code */
 #include "zb_msg.h"
 #include "SerialApp.h"
-#include "Sys_Test.h"
+#include "sys_func.h"
 #include "string.h"
 #include "light.h"
 /*********************************************************************
@@ -199,6 +199,7 @@ static void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt );
 static void SerialApp_Send(void);
 static void SerialApp_Resp(void);
 static void SerialApp_CallBack(uint8 port, uint8 event);
+static void  Heartbeat_process(void);
 /*********************************************************************
  * @fn      SerialApp_Init
  *
@@ -240,10 +241,14 @@ void SerialApp_Init( uint8 task_id )
   Init_T1_PWM();//Initial PWM
   RGB_PWM_FF_00((unsigned int *) rgb);
   TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
+  #else
+  timer_counter = 0;
+  zb_internet_state = zb_internet_unconnected;
+  HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );//if led4 is flash,zigbee isn't connected with internet
+  #endif
   osal_start_timerEx( SerialApp_TaskID,
                       SERIALAPP_TIMER_EVT,
-                     SERIALAPP_TIMER_INTERVAL);
-  #endif
+                      SERIALAPP_TIMER_INTERVAL);
   //Device Register 
 
  // osal_set_event(SerialApp_TaskID, SERIALAPP_TIMER_EVT);
@@ -306,7 +311,6 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
   }
   if ( events & SERIALAPP_LIGHT_EVT )// 0x0002
   {
-
       //uint8_t len ;
       //len = 3 * sizeof(uint16_t);
       osal_memcpy(rgb, &func_pamter[LIGHT_R_NUM],3 * sizeof(uint16_t));//*osal_memcpy( void *dst, const void GENERIC *src, unsigned int len )
@@ -318,9 +322,10 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
    // }
        return (events ^ SERIALAPP_LIGHT_EVT);
     }
-  if ( events & SERIALAPP_TIMER_EVT )// 0x0003 ----register
+  if( events & SERIALAPP_TIMER_EVT )// 0x0003 ----register
   {
       
+      #ifdef router_model   //device is router
       zAddrType_t txAddr;
       txAddr.addrMode = AddrBroadcast;
       txAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
@@ -328,11 +333,32 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
                         SERIALAPP_PROFID,
                         SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
                         SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
-                        FALSE );   
-    /*osal_start_timerEx( SerialApp_TaskID,
+                        FALSE );
+      #else//device is coordinator
+      if(timer_counter < ten_sec) {
+        timer_counter++;
+      }
+      else if(timer_counter == ten_sec){   
+        osal_set_event(SerialApp_TaskID, SERIALAPP_HEARTBEAT_EVT);
+        timer_counter++;
+      }
+      else{
+        osal_set_event(SerialApp_TaskID, SERIALAPP_HEARTBEAT_EVT);
+         zb_internet_state = zb_internet_unconnected;
+         HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );
+
+      }
+      #endif
+      osal_start_timerEx( SerialApp_TaskID,
                         SERIALAPP_TIMER_EVT,
-                        SERIALAPP_TIMER_INTERVAL);*/
-       return (events ^ SERIALAPP_TIMER_EVT);
+                        SERIALAPP_TIMER_INTERVAL);
+      return (events ^ SERIALAPP_TIMER_EVT);
+  }
+  if(events & SERIALAPP_HEARTBEAT_EVT){
+
+      Heartbeat_process();
+
+      return (events ^ SERIALAPP_HEARTBEAT_EVT);
   }
 
   return ( 0 );  // Discard unknown events.
@@ -381,7 +407,7 @@ static void SerialApp_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
             // Light LED
             HalLedSet( HAL_LED_4, HAL_LED_MODE_ON );
           }
-          {  
+          { 
             #ifdef router_model
             struct zb_reg_req reg_req;
             int rv;
@@ -429,12 +455,13 @@ static void SerialApp_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
 void SerialApp_HandleKeys( uint8 shift, uint8 keys )
 {
   zAddrType_t txAddr;
+  #ifdef router_model 
   //My code 
    char buf[128];
    //char str[10] = {"China"};
    struct zb_ann_reg msg;
    int rv;
-  
+  #endif
   if ( !shift )// ! should be added
   {
     if ( keys & HAL_KEY_SW_1 )
@@ -612,12 +639,12 @@ void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
     HalLedSet( HAL_LED_2, HAL_LED_MODE_OFF);
   }
   //print received wireless data
-  /* if ( HalUARTWrite( SERIAL_APP_PORT, pkt->cmd.Data, (pkt->cmd.DataLength) ) ) {
+  if ( HalUARTWrite( SERIAL_APP_PORT, pkt->cmd.Data, (pkt->cmd.DataLength) ) ) {
   }
   else
   {
     
-  } */
+  } 
   #ifdef router_model
   {
       int i,j;
@@ -748,20 +775,25 @@ static void SerialApp_Send(void)
 
   if (SerialApp_TxLen)
   {
-    SerialApp_TxAddr.addrMode = Addr16Bit;
-    SerialApp_TxAddr.addr.shortAddr =  BUILD_UINT16(SerialApp_TxBuf[13],SerialApp_TxBuf[12]);
-    if (afStatus_SUCCESS != AF_DataRequest(&SerialApp_TxAddr,
-                                           (endPointDesc_t *)&SerialApp_epDesc,
-                                            SERIALAPP_CLUSTERID1,
-                                            SerialApp_TxLen, SerialApp_TxBuf,
-                                            &SerialApp_MsgID, 0, AF_DEFAULT_RADIUS))
-    {
-      osal_set_event(SerialApp_TaskID, SERIALAPP_SEND_EVT);
+    if(SerialApp_TxBuf[11] != 0xFE){//if message is not a heartbeat ,send is to destination
+      SerialApp_TxAddr.addrMode = Addr16Bit;
+      SerialApp_TxAddr.addr.shortAddr =  BUILD_UINT16(SerialApp_TxBuf[13],SerialApp_TxBuf[12]);
+      if (afStatus_SUCCESS != AF_DataRequest(&SerialApp_TxAddr,
+                                             (endPointDesc_t *)&SerialApp_epDesc,
+                                              SERIALAPP_CLUSTERID1,
+                                              SerialApp_TxLen, SerialApp_TxBuf,
+                                              &SerialApp_MsgID, 0, AF_DEFAULT_RADIUS))
+      {
+        osal_set_event(SerialApp_TaskID, SERIALAPP_SEND_EVT);
+      }
+      else
+      {
+          SerialApp_TxLen = 0;
+      }
     }
-    else
-    {
-        SerialApp_TxLen = 0;
-    }
+  timer_counter = 0;
+  zb_internet_state = zb_internet_connected;
+  HalLedSet ( HAL_LED_4, HAL_LED_MODE_ON);
   }
 #endif
 }
@@ -814,3 +846,22 @@ static void SerialApp_CallBack(uint8 port, uint8 event)
 
 /*********************************************************************
 *********************************************************************/
+/*********************************************************************
+ * @fn      SerialApp_CallBack
+ *
+ * @brief   Send data OTA.
+ *
+ * @param   port - UART port.
+ * @param   event - the UART port event flag.
+ *
+ * @return  none
+ */
+ void  Heartbeat_process(void){
+  uint8_t buf[64];
+  uint8_t rv;
+  struct zb_header zb_heartbeat_req;
+  zb_heartbeat_req.cmd = 0xFE;
+  zb_heartbeat_req.addr = NLME_GetShortAddr();
+  rv = zb_encode_header(&zb_heartbeat_req,buf,sizeof(buf));
+  HalUARTWrite( SERIAL_APP_PORT, buf, rv);
+ }

@@ -7,8 +7,7 @@ extern "C" {
 #endif // __cplusplus
 
 enum {
-	//ZB_ID_HEARTBEAT = 0xFF,
-
+	
 	ZB_ID_REG_REQ = 0x01,
 	ZB_ID_REG_RSP = 0x81,
 
@@ -20,6 +19,10 @@ enum {
 
 	ZB_ID_ANN_REG = 0x06,
 	ZB_ID_ANN_RSP = 0x86,
+  
+  ZB_ID_HEARTBEAT_REQ = 0xFE,
+  ZB_ID_HEARTBEAT_RSP = 0xFF,
+  
 
 	// to be continued
 };

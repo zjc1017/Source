@@ -4,15 +4,8 @@
 //#include "platform.h"
 #ifdef __cplusplus
 extern "C" {
-#endif // __cplusplus
-#define SERIALAPP_LIGHT_EVT 0x0800
-#define SERIALAPP_TIMER_EVT 0x1000
-#define SERIALAPP_LIGHT_TaskID 0x01
-#define SERIALAPP_TIMER_TaskID 0x02
-  
-  
-#define SERIALAPP_LIGHT_INTERVAL  10
-#define SERIALAPP_TIMER_INTERVAL  5000  //5000ms
+#endif // __cplusplus  
+
 #define TURN_ON 1
 #define TURN_OFF 0
 #define LIGHT_TURN_ON_OFF  1
@@ -24,6 +17,9 @@ extern "C" {
 
  
 #define LIGHT_REGISTER 1
+
+
+
 #define TIMER1_INIT()   \
    do {                 \
       T1CTL  = 0x00;    \

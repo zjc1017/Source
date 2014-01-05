@@ -24,4 +24,26 @@ uint16_t func_b_backup;
 //uint16_t rgb_backup[4] = {0,0,0,0};
 uint16_t rgb[4] = {0,0,0};
 uint8_t serial_test[32];
-#define router_model   1
+
+//SYSTEM PARAMETER
+uint16_t timer_counter ;// unit second
+
+#define SERIALAPP_LIGHT_EVT 0x0800
+#define SERIALAPP_TIMER_EVT 0x1000
+#define SERIALAPP_HEARTBEAT_EVT 0X2000
+#define SERIALAPP_LIGHT_TaskID 0x01
+#define SERIALAPP_TIMER_TaskID 0x02
+
+#define SERIALAPP_LIGHT_INTERVAL  10
+#define SERIALAPP_TIMER_INTERVAL  1000  //1000ms
+
+#define ten_sec 10   //10 second interval
+
+
+uint8_t zb_internet_state;//connected and unconnected
+#define zb_internet_connected 1
+#define zb_internet_unconnected 0
+
+
+
+//#define router_model   1
