@@ -22,7 +22,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED 鈥淎S IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, 
+  PROVIDED 芒鈧揂S IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED, 
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE, 
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -78,9 +78,11 @@
 /* myself code */
 #include "zb_msg.h"
 #include "SerialApp.h"
-#include "sys_func.h"
 #include "string.h"
 #include "light.h"
+#include "sys_func.h"
+#include "relay.h"
+#include "ioCC2530.h"      // 申明该文件中用到的头文件
 /*********************************************************************
  * MACROS
  */
@@ -127,6 +129,7 @@
 #endif
 
 #define SERIAL_APP_RSP_CNT  4
+
 
 // This list should be filled with Application specific Cluster IDs.
 const cId_t SerialApp_ClusterList[SERIALAPP_MAX_CLUSTERS] =
@@ -199,7 +202,14 @@ static void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt );
 static void SerialApp_Send(void);
 static void SerialApp_Resp(void);
 static void SerialApp_CallBack(uint8 port, uint8 event);
+
+;
+
 static void  Heartbeat_process(void);
+static void coordter_init(void);
+
+static void router_init(void);
+static void relay_init(void);
 /*********************************************************************
  * @fn      SerialApp_Init
  *
@@ -238,12 +248,17 @@ void SerialApp_Init( uint8 task_id )
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, End_Device_Bind_rsp );
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, Match_Desc_rsp );
   #ifdef router_model   //it this device is a router or end device
+  router_init();
+  #ifdef light_model
   Init_T1_PWM();//Initial PWM
   RGB_PWM_FF_00((unsigned int *) rgb);
   TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
+  #elif relay_model
+  relayclose();//close relay
   #else
-  timer_counter = 0;
-  zb_internet_state = zb_internet_unconnected;
+  #endif
+  #else
+  coordter_init();
   HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );//if led4 is flash,zigbee isn't connected with internet
   #endif
   osal_start_timerEx( SerialApp_TaskID,
@@ -313,28 +328,34 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
   {
       //uint8_t len ;
       //len = 3 * sizeof(uint16_t);
-      osal_memcpy(rgb, &func_pamter[LIGHT_R_NUM],3 * sizeof(uint16_t));//*osal_memcpy( void *dst, const void GENERIC *src, unsigned int len )
-      rgb[3] = '\0';
-      RGB_PWM_FF_00((unsigned int *) rgb);
-      TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
-      osal_memcpy( serial_test, rgb, 3 * sizeof(uint16_t));
-      HalUARTWrite( SERIAL_APP_PORT,serial_test,3 * sizeof(uint16_t));
-   // }
-       return (events ^ SERIALAPP_LIGHT_EVT);
+      #ifdef light_model
+        osal_memcpy(rgb, &func_pamter[LIGHT_R_NUM],3 * sizeof(uint16_t));//*osal_memcpy( void *dst, const void GENERIC *src, unsigned int len )
+        rgb[3] = '\0';
+        RGB_PWM_FF_00((unsigned int *) rgb);
+        TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
+        //osal_memcpy( serial_test, rgb, 3 * sizeof(uint16_t));
+        //HalUARTWrite( SERIAL_APP_PORT,serial_test,3 * sizeof(uint16_t));
+        //}
+      #endif
+      return (events ^ SERIALAPP_LIGHT_EVT);
     }
   if( events & SERIALAPP_TIMER_EVT )// 0x0003 ----register
   {
       
       #ifdef router_model   //device is router
-      zAddrType_t txAddr;
-      txAddr.addrMode = AddrBroadcast;
-      txAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
-      ZDP_MatchDescReq( &txAddr, NWK_BROADCAST_SHORTADDR,
-                        SERIALAPP_PROFID,
-                        SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
-                        SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
-                        FALSE );
-      #else//device is coordinator
+      if(zb_reg_state == zb_unregistered)
+      {
+        zAddrType_t txAddr;
+        txAddr.addrMode = AddrBroadcast;
+        txAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
+        ZDP_MatchDescReq( &txAddr, NWK_BROADCAST_SHORTADDR,
+                          SERIALAPP_PROFID,
+                          SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
+                          SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
+                          FALSE );
+        //zb_reg_state = zb_registered;
+      }
+      #else //device is coordinator
       if(timer_counter < ten_sec) {
         timer_counter++;
       }
@@ -344,11 +365,19 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
       }
       else{
         osal_set_event(SerialApp_TaskID, SERIALAPP_HEARTBEAT_EVT);
-         zb_internet_state = zb_internet_unconnected;
-         HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );
+        zb_internet_state = zb_internet_unconnected;
+        HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );
 
       }
       #endif
+      #ifdef relay_model
+      if(relay_state == relay_close){//func_pamter[4] = 1
+        relayclose();
+      }
+        else{
+        relayopen();
+      }
+      #endif 
       osal_start_timerEx( SerialApp_TaskID,
                         SERIALAPP_TIMER_EVT,
                         SERIALAPP_TIMER_INTERVAL);
@@ -356,7 +385,7 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
   }
   if(events & SERIALAPP_HEARTBEAT_EVT){
 
-      Heartbeat_process();
+      //Heartbeat_process();//send heartbeat to  cpu
 
       return (events ^ SERIALAPP_HEARTBEAT_EVT);
   }
@@ -388,6 +417,7 @@ static void SerialApp_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
       {
         // Flash LED to show failure
         HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );
+        zb_reg_state = zb_unregistered;
       }
 #endif
       break;
@@ -639,28 +669,25 @@ void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
     HalLedSet( HAL_LED_2, HAL_LED_MODE_OFF);
   }
   //print received wireless data
-  if ( HalUARTWrite( SERIAL_APP_PORT, pkt->cmd.Data, (pkt->cmd.DataLength) ) ) {
-  }
-  else
-  {
-    
-  } 
   #ifdef router_model
   {
+
       int i,j;
       int rv;
       uint8_t id;
-      uint8_t header_cmd;
-      const uint8_t parameter_num =4 ;//三个功能号
-      char buf[32];
+      //uint8_t header_cmd;
+      const uint8_t parameter_num =4 ;//Response format [FF 00 01 83] 00
+      char buf[64];
+      struct zb_header  hdr_dec;
       struct zb_get_req get_req;
       struct zb_get_rsp get_rsp;
       struct zb_set_req set_req;
       struct zb_set_rsp set_rsp;
       struct zb_item_pair items[10];
       #define zb_set_rsp_lenth   5//Response format [FF 00 01 83] 00
-      header_cmd=pkt->cmd.Data[11];//cmd
-      switch (header_cmd) {
+      zb_decode_header( &hdr_dec, (char*)pkt->cmd.Data, sizeof(hdr_dec));
+      //header_cmd=pkt->cmd.Data[11];//cmd
+      switch (hdr_dec.cmd) {
       case ZB_ID_GET_REQ:
           rv = zb_decode_get_req(&get_req, (char*)pkt->cmd.Data, pkt->cmd.DataLength );//copy af message to ge_req
           // new item pair array
@@ -702,7 +729,8 @@ void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
               }
           }
           break;//return;
-          case ZB_ID_SET_REQ:
+      case ZB_ID_SET_REQ:
+      {
             rv = zb_decode_set_req(&set_req, (char*)pkt->cmd.Data , pkt->cmd.DataLength);
             for(i = 0;i < set_req.pairs.count ; i++ )
             {
@@ -727,10 +755,23 @@ void SerialApp_ProcessMSGCmd( afIncomingMSGPacket_t *pkt )
                         SERIALAPP_LIGHT_INTERVAL);
            
            break;
+         }
+      case ZB_ID_REG_RSP:{
+
+        zb_reg_state = zb_registered;//received register message,change device register state
+
+      }
             default:
       break;
       }
   }
+#else
+  if ( HalUARTWrite( SERIAL_APP_PORT, pkt->cmd.Data, (pkt->cmd.DataLength) ) ) {
+  }
+  else
+  {
+    
+  } 
 #endif
  break;
   }
@@ -775,9 +816,12 @@ static void SerialApp_Send(void)
 
   if (SerialApp_TxLen)
   {
-    if(SerialApp_TxBuf[11] != 0xFE){//if message is not a heartbeat ,send is to destination
+    struct  zb_header serial_rec_hdr;
+    zb_decode_header( &serial_rec_hdr, (char *)SerialApp_TxBuf, sizeof(SerialApp_TxBuf));
+    if((serial_rec_hdr.cmd != ZB_ID_HEARTBEAT_REQ) && (serial_rec_hdr.cmd != 0x00)){//if message is not a heartbeat ,send is to destination
       SerialApp_TxAddr.addrMode = Addr16Bit;
-      SerialApp_TxAddr.addr.shortAddr =  BUILD_UINT16(SerialApp_TxBuf[13],SerialApp_TxBuf[12]);
+      //SerialApp_TxAddr.addr.shortAddr =  BUILD_UINT16(SerialApp_TxBuf[13],SerialApp_TxBuf[12]);
+      SerialApp_TxAddr.addr.shortAddr =  serial_rec_hdr.addr;
       if (afStatus_SUCCESS != AF_DataRequest(&SerialApp_TxAddr,
                                              (endPointDesc_t *)&SerialApp_epDesc,
                                               SERIALAPP_CLUSTERID1,
@@ -857,11 +901,61 @@ static void SerialApp_CallBack(uint8 port, uint8 event)
  * @return  none
  */
  void  Heartbeat_process(void){
-  uint8_t buf[64];
-  uint8_t rv;
+  char buf[64];
+  int rv;
   struct zb_header zb_heartbeat_req;
-  zb_heartbeat_req.cmd = 0xFE;
+  zb_heartbeat_req.cmd  = 0xFE;
   zb_heartbeat_req.addr = NLME_GetShortAddr();
+  zb_heartbeat_req.len  = 0x00;
   rv = zb_encode_header(&zb_heartbeat_req,buf,sizeof(buf));
-  HalUARTWrite( SERIAL_APP_PORT, buf, rv);
+  HalUARTWrite( SERIAL_APP_PORT, (uint8 *)buf, rv);
  }
+/*********************************************************************
+ * @fn      router_init
+ *
+ * @brief   initial router parameter.
+ *
+ * @param   none
+ * @param   none
+ *
+ * @return  none
+ */
+void router_init(void){
+
+	zb_reg_state = zb_unregistered;
+
+}
+/*********************************************************************
+ * @fn      coordter_init
+ *
+ * @brief   initial coordinator parameter.
+ *
+ * @param   none
+ * @param   none
+ *
+ * @return  none
+ */
+void coordter_init(void){
+
+  timer_counter = 0;
+  zb_internet_state = zb_internet_unconnected;
+}
+/*********************************************************************
+ * @fn      relay_init
+ *
+ * @brief   initial coordinator parameter.
+ *
+ * @param   none
+ * @param   none
+ *
+ * @return  none
+ */
+void relay_init(void){
+
+    
+    P0SEL  |= 0xFF; //0: General-purpose I/O  1: Peripheral function
+    
+    P0DIR  |= 0X21; //Set P0_3/P0_4/P0_5/P0_6 as output  0: input  1: output
+    
+    
+}

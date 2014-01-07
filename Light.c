@@ -1,8 +1,8 @@
 #include <string.h>
 #include <ioCC2530.h>
-
-#include "light.h"
 #include "platform.h"
+#include "light.h"
+
 void Init_T1_PWM(void);
 /*****************************************
 //T1 as pwm interrupt period
@@ -10,8 +10,8 @@ void Init_T1_PWM(void);
 void Init_T1_PWM(void)
 {
 
-    TIMER1_INIT();                  ////初始化T1
-    //TIMER1_ENABLE_OVERFLOW_INT(1);  ////开T1中断
+    TIMER1_INIT();                  ////initial T1
+    //TIMER1_ENABLE_OVERFLOW_INT(1);  // open T1 interrupt 
     //EA = 1;//Enbale all interrupt 
     T1IE   = 1;//Enbale timer1 interrupt 
     PERCFG = 0x03;  //To have all Timer 1 channels visible in alternative 1 location, move both USART 0 and USART 1 to
@@ -19,7 +19,7 @@ void Init_T1_PWM(void)
     P1SEL  |= 0xF0; //P1.7--RX P1.6--TX P1.5--RT P1.4--CT
     P0DIR  |= 0X78; //Set P0_3/P0_4/P0_5/P0_6 as output
     P1DIR  |= 0x70; //P1.7--RX P1.6--TX P1.5--RT P1.4--CT  1:output 0:input
-    P2DIR  =  0X80;  //P0优先作为TIMER1()1st priority: Timer 1 channels 0-1,uart0 uart1 as 2
+    P2DIR  =  0X80;  //P0 as TIMER1()1st priority: Timer 1 channels 0-1,uart0 uart1 as 2
     /*******************************************
     P2DIR :BIT7-6
     00 USART0 USART1 TIMER1
@@ -47,7 +47,7 @@ void Init_T1_PWM(void)
     T1CTL =0x00;//CLEAR TIMER1 CONTROL REGISTER
     T1CTL |=0x0c; // divider=128
     T1CTL |= 0x03; //UP AND DOWN MODULE
-   
+    
 
 };
 void TIMER1_SET_PWM_LENGTH_RGB(unsigned int *v){

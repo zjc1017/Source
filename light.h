@@ -1,7 +1,5 @@
 #ifndef _LIGHT_H__
 #define _LIGHT_H__
-//#include <stdint.h>
-//#include "platform.h"
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus  
@@ -68,8 +66,11 @@ do {                       \
       T1CNTH   = val>>8; \
 } while (0)
   
-#endif
+
 
 void Init_T1_PWM(void);
 unsigned int RGB_PWM_FF_00(unsigned int *v);
 void TIMER1_SET_PWM_LENGTH_RGB(unsigned int *v);
+
+
+#endif
