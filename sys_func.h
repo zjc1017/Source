@@ -39,7 +39,7 @@ uint16_t timer_counter ;// unit second
 #define SERIALAPP_TIMER_TaskID 0x02
 
 #define SERIALAPP_LIGHT_INTERVAL  10
-#define SERIALAPP_TIMER_INTERVAL  10000  //1000ms
+#define SERIALAPP_TIMER_INTERVAL  1000  //1000ms
 
 #define ten_sec 10   //10 second interval
 
@@ -51,11 +51,21 @@ uint8_t zb_internet_state;//connected and unconnected
 #define zb_internet_connected 1
 #define zb_internet_unconnected 0
 
-#define router_model   1 //device is a end point or router
+
+#if ( ZSTACK_DEVICE_BUILD == DEVICE_BUILD_COORDINATOR )
+  //#define ZG_DEVICE_COORDINATOR_TYPE 1
+#else
+  #define router_model   1 //device is a end point or router
+  #define light_model    1
+  //#define relay_model    1
+  //#define ZG_DEVICE_COORDINATOR_TYPE (zgDeviceLogicalType == ZG_DEVICETYPE_COORDINATOR)
+#endif
 
 
-//#define light_model    1
-#define relay_model    1
+
+
+
+
 
 
 #define  relay_state func_pamter[4] 

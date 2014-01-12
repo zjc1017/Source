@@ -248,15 +248,14 @@ void SerialApp_Init( uint8 task_id )
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, End_Device_Bind_rsp );
   ZDO_RegisterForZDOMsg( SerialApp_TaskID, Match_Desc_rsp );
   #ifdef router_model   //it this device is a router or end device
-  router_init();
-  #ifdef light_model
-  Init_T1_PWM();//Initial PWM
-  RGB_PWM_FF_00((unsigned int *) rgb);
-  TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
-  #elif relay_model
-  relayclose();//close relay
-  #else
-  #endif
+    router_init();
+    #ifdef light_model
+      Init_T1_PWM();//Initial PWM
+      RGB_PWM_FF_00((unsigned int *) rgb);
+      TIMER1_SET_PWM_LENGTH_RGB((unsigned int *)rgb);
+    #elif relay_model
+      relayclose();//close relay
+    #endif
   #else
   coordter_init();
   HalLedSet ( HAL_LED_4, HAL_LED_MODE_FLASH );//if led4 is flash,zigbee isn't connected with internet
@@ -345,15 +344,33 @@ UINT16 SerialApp_ProcessEvent( uint8 task_id, UINT16 events )
       #ifdef router_model   //device is router
       if(zb_reg_state == zb_unregistered)
       {
-        zAddrType_t txAddr;
-        txAddr.addrMode = AddrBroadcast;
-        txAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
-        ZDP_MatchDescReq( &txAddr, NWK_BROADCAST_SHORTADDR,
-                          SERIALAPP_PROFID,
-                          SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
-                          SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
-                          FALSE );
+        // zAddrType_t txAddr;
+        // txAddr.addrMode = AddrBroadcast;
+        // txAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
+        // ZDP_MatchDescReq( &txAddr, NWK_BROADCAST_SHORTADDR,
+        //                   SERIALAPP_PROFID,
+        //                   SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
+        //                   SERIALAPP_MAX_CLUSTERS, (cId_t *)SerialApp_ClusterList,
+        //                   FALSE );
         //zb_reg_state = zb_registered;
+
+        //just a test
+            char wiless_buf_test[30];
+            strcpy(wiless_buf_test, "just a test");
+            SerialApp_TxAddr.addrMode = Addr16Bit;
+            SerialApp_TxAddr.addr.shortAddr = 0x0000; // Send message to Coordinator
+            if ( AF_DataRequest(&SerialApp_TxAddr,(endPointDesc_t *)&SerialApp_epDesc,
+                       SERIALAPP_CLUSTERID1,
+                       11, (byte *)wiless_buf_test,
+                       &SerialApp_MsgID, 0, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
+            {
+             // Successfully requested to be sent.
+              //HalUARTWrite( SERIAL_APP_PORT,Serial_Test1,sizeof(Serial_Test1));//match is ok;
+            }
+            else
+           {
+           //HalUARTWrite( SERIAL_APP_PORT,Serial_Test2,sizeof(Serial_Test2));//match isn't ok;
+           }
       }
       #else //device is coordinator
       if(timer_counter < ten_sec) {
